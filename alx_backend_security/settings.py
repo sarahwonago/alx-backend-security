@@ -136,3 +136,12 @@ RATELIMITS = {
     "authenticated": "10/m",  # 10 requests per minute
     "anonymous": "5/m",  # 5 requests per minute
 }
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    "detect-anomalies-hourly": {
+        "task": "ip_tracking.tasks.detect_anomalies",
+        "schedule": crontab(minute=0, hour="*"),  # every hour
+    },
+}
