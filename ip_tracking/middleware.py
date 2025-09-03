@@ -1,24 +1,28 @@
+from django.http import HttpResponseForbidden
 from django.utils.deprecation import MiddlewareMixin
-from .models import RequestLog
+from .models import RequestLog, BlockedIP
 
 
 class IPLoggingMiddleware(MiddlewareMixin):
     """
-    Log client IP, path and timestamp for every request.
-    Uses REMOTE_ADDR or X-Forwarded-For if present.
+    Middleware to log client IPs and block requests from blacklisted IPs.
     """
 
     def process_request(self, request):
-        # get client IP (basic)
+        # Extract client IP
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            # X-Forwarded-For may be a comma-separated list; take first
             ip = x_forwarded_for.split(",")[0].strip()
         else:
             ip = request.META.get("REMOTE_ADDR")
 
-        # Save a log entry; keep this inside try/except to avoid breaking the request flow
+        # Block if IP is blacklisted
+        if BlockedIP.objects.filter(ip_address=ip).exists():
+            return HttpResponseForbidden("Forbidden: Your IP is blocked.")
+
+        # Otherwise, log request
         try:
             RequestLog.objects.create(ip_address=ip, path=request.path)
         except Exception:
+            # Fail silently to avoid breaking requests
             pass
